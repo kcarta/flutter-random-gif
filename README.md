@@ -1,10 +1,7 @@
-# gif
+# random gif
 
-A new Flutter project.
+Shows random gifs, filterable by category and rating. Uses the Giphy API.
 
-## Getting Started
+This is my first Flutter app, written over a few short train rides.
 
-For help getting started with Flutter, view our online
-[documentation](https://flutter.io/).
-
-
+To run, get an API key at [developers.giphy.com]. Save this key in a file in the project root named api_key

@@ -5,7 +5,6 @@ import 'package:gif/gif/gifService.dart';
 void main() => runApp(new MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     var gifService = GifService();
@@ -30,12 +29,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
   final GifService gifService;
-  final List<String> _ratings = ["", "Y", "G", "PG", "PG-13", "R" ];
 
   String _tag = "";
-  String _rating = "";
 
   _MyHomePageState(this.gifService);
 
@@ -44,63 +40,38 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
         appBar: AppBar(
           title: Text(widget.title),
+          actions: <Widget>[
+            _buildSearchButton(),
+          ],
         ),
-        body: Center(
-          child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.only(top: 24.0, bottom: 36.0),
-                  child: Row(
-                    children: [
-                      _buildRatingDropdown(),
-                      _buildCategorySearchInput(),
-                      _buildSearchButton(),
-                    ],
-                  ),
-                ),
-                FutureBuilder<Gif>(
-                    future: gifService.fetchImageUrlAsync(_tag, _rating),
-                    builder: _buildImage),
-              ]),
-        ));
+        body: ListView(children: [
+          Center(
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.only(top: 24.0, bottom: 36.0),
+                child: _buildCategorySearchInput(),
+              ),
+              FutureBuilder<Gif>(
+                  future: gifService.fetchImageUrlAsync(_tag),
+                  builder: _buildImage),
+            ]),
+          ),
+        ]));
   }
 
   Widget _buildCategorySearchInput() {
-    return Container(
-      width: 160.0,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 24.0, right: 32.0),
-        child: TextField(
-          onChanged: (text) {
-            _tag = text;
-          },
-          onSubmitted: (String text) {
-            _tag = text;
-            _refreshImage();
-          },
-          decoration: InputDecoration(
-              border: InputBorder.none,
-              labelText: "Category"
+    return Center(
+      child: Container(
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12.0, right: 12.0),
+          child: TextField(
+            onChanged: (text) => _tag = text,
+            onSubmitted: (_) => _refreshImage(),
+            decoration:
+                InputDecoration(labelText: "Search"),
           ),
         ),
-      ),
-    );
-  }
-
-  _buildRatingDropdown() {
-    return Container(
-      padding: const EdgeInsets.only(left: 24.0),
-      child: DropdownButton<String>(
-        value: _rating == "" ? null : _rating,
-        items: _ratings.map((String rating) {
-          return DropdownMenuItem<String>(value: rating, child: Text(rating));
-        }).toList(),
-        onChanged: (String rating) {
-          _rating = rating;
-          _refreshImage();
-        },
-        hint: Text("Rating"),
       ),
     );
   }

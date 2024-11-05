@@ -1,110 +1,157 @@
+// main.dart
 import 'package:flutter/material.dart';
-import 'package:gif/gif/gif.dart';
-import 'package:gif/gif/gifService.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 
-void main() => runApp(new MyApp());
+void main() {
+  runApp(const GiphyApp());
+}
 
-class MyApp extends StatelessWidget {
+class GiphyApp extends StatelessWidget {
+  const GiphyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    var gifService = GifService();
-    return new MaterialApp(
-      title: 'Flutter Demo',
-      theme: new ThemeData(
+    return MaterialApp(
+      title: 'Random Giphy',
+      theme: ThemeData(
         primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
-      home: new MyHomePage(title: 'Random gif viewer', gifService: gifService),
+      home: const RandomGifPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  final GifService gifService;
-  final String title;
-
-  MyHomePage({Key key, this.title, this.gifService}) : super(key: key);
+class RandomGifPage extends StatefulWidget {
+  const RandomGifPage({super.key});
 
   @override
-  _MyHomePageState createState() => new _MyHomePageState(gifService);
+  State<RandomGifPage> createState() => _RandomGifPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  final GifService gifService;
+class _RandomGifPageState extends State<RandomGifPage> {
+  String? currentGifUrl;
+  bool isLoading = false;
+  final TextEditingController _tagController = TextEditingController();
+  String? apiKey;
 
-  String _tag = "";
+  @override
+  void initState() {
+    super.initState();
+    _loadApiKey();
+  }
 
-  _MyHomePageState(this.gifService);
+  Future<void> _loadApiKey() async {
+    try {
+      final String key = await rootBundle.loadString('assets/api_key');
+      setState(() {
+        apiKey = key.trim();
+      });
+      // Load initial random GIF
+      _fetchRandomGif();
+    } catch (e) {
+      print('Error loading API key: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error loading API key')),
+      );
+    }
+  }
+
+  Future<void> _fetchRandomGif() async {
+    if (apiKey == null) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final tag =
+          _tagController.text.isNotEmpty ? '&tag=${_tagController.text}' : '';
+      final response = await http.get(
+        Uri.parse('http://api.giphy.com/v1/gifs/random?api_key=$apiKey$tag'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          currentGifUrl = data['data']['images']['original']['url'];
+          isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load GIF');
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error fetching GIF')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
-          actions: <Widget>[
-            _buildSearchButton(),
-          ],
-        ),
-        body: ListView(children: [
-          Center(
-            child:
-                Column(mainAxisAlignment: MainAxisAlignment.start, children: [
-              Container(
-                padding: const EdgeInsets.only(top: 24.0, bottom: 36.0),
-                child: _buildCategorySearchInput(),
+      appBar: AppBar(
+        title: const Text('Random Giphy'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _tagController,
+              decoration: const InputDecoration(
+                labelText: 'Enter tag (optional)',
+                border: OutlineInputBorder(),
               ),
-              FutureBuilder<Gif>(
-                  future: gifService.fetchImageUrlAsync(_tag),
-                  builder: _buildImage),
-            ]),
-          ),
-        ]));
-  }
-
-  Widget _buildCategorySearchInput() {
-    return Center(
-      child: Container(
-        child: Padding(
-          padding: const EdgeInsets.only(left: 12.0, right: 12.0),
-          child: TextField(
-            onChanged: (text) => _tag = text,
-            onSubmitted: (_) => _refreshImage(),
-            decoration:
-                InputDecoration(labelText: "Search"),
-          ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _fetchRandomGif,
+              child: const Text('Get Random GIF'),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Center(
+                child: isLoading
+                    ? const CircularProgressIndicator()
+                    : currentGifUrl != null
+                        ? Image.network(
+                            currentGifUrl!,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Text('Error loading image');
+                            },
+                          )
+                        : const Text('No GIF loaded'),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSearchButton() {
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      child: RaisedButton(
-          onPressed: _refreshImage,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Icon(Icons.refresh),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Text("Random!"),
-              ),
-            ],
-          )),
-    );
-  }
-
-  void _refreshImage() {
-    setState(() {});
-  }
-
-  Widget _buildImage(_, AsyncSnapshot<Gif> snapshot) {
-    if (snapshot.hasData) {
-      return Image.network(snapshot.data.url);
-    }
-    return CircularProgressIndicator();
+  @override
+  void dispose() {
+    _tagController.dispose();
+    super.dispose();
   }
 }
